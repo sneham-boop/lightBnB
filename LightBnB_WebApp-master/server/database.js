@@ -89,13 +89,8 @@ const getAllReservations = function (guest_id, limit = 10) {
   LIMIT $2;`;
   return pool
     .query(text, [guest_id, limit])
-    .then((response) => {
-     console.log(response.rows);
-      return response.rows;
-    })
-    .catch((error) => {
-      return error.message;
-    });
+    .then(response => response.rows)
+    .catch(error => error.message);
 };
 exports.getAllReservations = getAllReservations;
 
