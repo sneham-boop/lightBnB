@@ -1,5 +1,4 @@
-const properties = require("./json/properties.json");
-const users = require("./json/users.json");
+// Database configuration
 const { Pool } = require("pg");
 
 const dbConfig = {
@@ -21,11 +20,13 @@ pool.query(`SELECT * FROM properties LIMIT 1;`).then((response) => {
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithEmail = function (email) {
-  const text = `SELECT *
+  const queryString = 
+  `SELECT *
   FROM users
   WHERE email = $1`;
+  const queryParams = [email.toLowerCase()];
   return pool
-    .query(text, [email.toLowerCase()])
+    .query(queryString, queryParams)
     .then((response) => response.rows[0])
     .catch((error) => error.message);
 };
@@ -37,11 +38,13 @@ exports.getUserWithEmail = getUserWithEmail;
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithId = function (id) {
-  const text = `SELECT *
+  const queryString = 
+  `SELECT *
   FROM users
   WHERE id = $1`;
+  const queryParams = [id];
   return pool
-    .query(text, [id])
+    .query(queryString, queryParams)
     .then((response) => response.rows[0])
     .catch((error) => error.message);
 };
@@ -54,15 +57,14 @@ exports.getUserWithId = getUserWithId;
  */
 const addUser = function (user) {
   const { name, email, password } = user;
-  const text = `INSERT INTO users 
-  (name, email, password)
+  const queryString = 
+  `INSERT INTO users (name, email, password)
   VALUES ($1, $2, $3) 
   RETURNING *;`;
+  const queryParams = [name, email.toLowerCase(), password];
   return pool
-    .query(text, [name, email.toLowerCase(), password])
-    .then((response) => {
-      return response.rows[0];
-    })
+    .query(queryString, queryParams)
+    .then((response) => response.rows[0])
     .catch((error) => error.message);
 };
 exports.addUser = addUser;
@@ -75,8 +77,8 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function (guest_id, limit = 10) {
-  // return getAllProperties(null, 2);
-  const text = `SELECT reservations.*, properties.*, AVG(property_reviews.rating) AS avg_rating
+  const queryString = 
+  `SELECT reservations.*, properties.*, AVG(property_reviews.rating) AS avg_rating
   FROM reservations
   JOIN properties ON reservations.property_id = properties.id
   JOIN property_reviews ON properties.id = property_reviews.property_id
@@ -86,8 +88,9 @@ const getAllReservations = function (guest_id, limit = 10) {
   GROUP BY reservations.id, properties.id
   ORDER BY start_date
   LIMIT $2;`;
+  const queryParams = [guest_id, limit];
   return pool
-    .query(text, [guest_id, limit])
+    .query(queryString, queryParams)
     .then((response) => response.rows)
     .catch((error) => error.message);
 };
