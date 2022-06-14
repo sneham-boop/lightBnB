@@ -85,6 +85,8 @@ const getAllReservations = function (guest_id, limit = 10) {
   ORDER BY reservations.start_date
   LIMIT $2;`;
   const queryParams = [guest_id, limit];
+
+  console.log(queryString);
   return pool
     .query(queryString, queryParams)
     .then((response) => response.rows)
@@ -101,7 +103,7 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function (options, limit = 10) {
-  let queryString = `SELECT properties.*, AVG(property_reviews.rating) as average_rating
+  let queryString = `SELECT properties.*, AVG(property_reviews.rating) AS average_rating
   FROM properties
   JOIN property_reviews ON properties.id = property_reviews.property_id
   GROUP BY properties.id
@@ -115,27 +117,24 @@ const getAllProperties = function (options, limit = 10) {
     `;
   }
 
-  // Assembly options for query
+  // Assemble options for query
   let optionsQuery = "HAVING ";
   let and = " AND ";
 
   if (options.city) {
-    let city = "";
     queryParams.push(`%${options.city}%`);
-    city = `city LIKE $${queryParams.length}`;
+    const city = `city LIKE $${queryParams.length}`;
     optionsQuery += `${city}`;
   }
 
   if (options.minimum_price_per_night && options.maximum_price_per_night) {
     // Convert from $ to cents
-    let minMaxPrice = "";
     const minPrice = options.minimum_price_per_night * 100;
     const maxPrice = options.maximum_price_per_night * 100;
-    queryParams.push(minPrice);
-    queryParams.push(maxPrice);
-    minMaxPrice = `properties.cost_per_night >= $${
-      queryParams.length - 1
-    } AND properties.cost_per_night <= $${queryParams.length}`;
+    queryParams.push(minPrice, maxPrice);
+    const minMaxPrice = `properties.cost_per_night >= $${queryParams.length - 1} AND properties.cost_per_night <= $${queryParams.length}`;
+
+    // Check if any option was added before this
     if (optionsQuery.length > 7) optionsQuery += and + `${minMaxPrice}`;
     else optionsQuery += `${minMaxPrice}`;
   }
@@ -144,11 +143,13 @@ const getAllProperties = function (options, limit = 10) {
     let rating = "";
     queryParams.push(parseInt(options.minimum_rating));
     rating = `AVG(property_reviews.rating) >= $${queryParams.length}`;
+
+    // Check if any option was added before this
     if (optionsQuery.length > 7) optionsQuery += and + `${rating}`;
     else optionsQuery += `${rating}`;
   }
 
-  // Add options to query
+  // Only add options to query if present
   if (optionsQuery.length > 7) {
     queryString += optionsQuery;
   }
@@ -157,9 +158,7 @@ const getAllProperties = function (options, limit = 10) {
   queryParams.push(limit);
   queryString += `
   ORDER BY properties.cost_per_night
-  LIMIT $${queryParams.length};
-  `;
-console.log(queryString);
+  LIMIT $${queryParams.length};`;
 
   return pool
     .query(queryString, queryParams)
@@ -176,16 +175,27 @@ exports.getAllProperties = getAllProperties;
 const addProperty = function (property) {
   let queryString = `INSERT INTO properties 
   (title, description, number_of_bedrooms, number_of_bathrooms, parking_spaces, cost_per_night, thumbnail_photo_url, cover_photo_url, street, country, city, province, post_code, owner_id, active)
-  VALUES
-  ($1, $2, $3 , $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)
+  VALUES ($1, $2, $3 , $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)
   RETURNING *`;
   let queryParams = [];
   for (const key in property) queryParams.push(property[key]);
 
-  console.log(queryParams);
   return pool
     .query(queryString, queryParams)
     .then((response) => response.rows[0])
     .catch((error) => error.message);
 };
 exports.addProperty = addProperty;
+
+/*
+SELECT reservations.start_date, properties.title, AVG(property_reviews.rating) AS avg_rating
+  FROM reservations
+  JOIN properties ON properties.id = reservations.property_id
+  JOIN property_reviews ON properties.id = property_reviews.property_id
+  WHERE 
+    reservations.guest_id = 1 AND
+    reservations.end_date < now()::date
+  GROUP BY reservations.id, properties.id
+  ORDER BY reservations.start_date
+  LIMIT 2;
+*/
