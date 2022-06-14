@@ -159,6 +159,7 @@ const getAllProperties = function (options, limit = 10) {
   ORDER BY properties.cost_per_night
   LIMIT $${queryParams.length};
   `;
+console.log(queryString);
 
   return pool
     .query(queryString, queryParams)
@@ -181,6 +182,7 @@ const addProperty = function (property) {
   let queryParams = [];
   for (const key in property) queryParams.push(property[key]);
 
+  console.log(queryParams);
   return pool
     .query(queryString, queryParams)
     .then((response) => response.rows[0])
