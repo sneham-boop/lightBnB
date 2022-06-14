@@ -86,7 +86,6 @@ const getAllReservations = function (guest_id, limit = 10) {
   LIMIT $2;`;
   const queryParams = [guest_id, limit];
 
-  console.log(queryString);
   return pool
     .query(queryString, queryParams)
     .then((response) => response.rows)
@@ -106,20 +105,19 @@ const getAllProperties = function (options, limit = 10) {
   let queryString = `SELECT properties.*, AVG(property_reviews.rating) AS average_rating
   FROM properties
   JOIN property_reviews ON properties.id = property_reviews.property_id
-  GROUP BY properties.id
-  `;
+  GROUP BY properties.id `;
   let queryParams = [];
-
-  // Own properties
-  if (options.owner_id) {
-    queryParams.push(parseInt(options.owner_id));
-    queryString += `HAVING properties.owner_id = $${queryParams.length}
-    `;
-  }
 
   // Assemble options for query
   let optionsQuery = "HAVING ";
   let and = " AND ";
+
+  // Own properties
+  if (options.owner_id) {
+    queryParams.push(parseInt(options.owner_id));
+    // queryString += `HAVING properties.owner_id = $${queryParams.length}`;
+    optionsQuery += `properties.owner_id = $${queryParams.length}`;
+  }
 
   if (options.city) {
     queryParams.push(`%${options.city}%`);
@@ -132,7 +130,9 @@ const getAllProperties = function (options, limit = 10) {
     const minPrice = options.minimum_price_per_night * 100;
     const maxPrice = options.maximum_price_per_night * 100;
     queryParams.push(minPrice, maxPrice);
-    const minMaxPrice = `properties.cost_per_night >= $${queryParams.length - 1} AND properties.cost_per_night <= $${queryParams.length}`;
+    const minMaxPrice = `properties.cost_per_night >= $${
+      queryParams.length - 1
+    } AND properties.cost_per_night <= $${queryParams.length}`;
 
     // Check if any option was added before this
     if (optionsQuery.length > 7) optionsQuery += and + `${minMaxPrice}`;
@@ -149,7 +149,7 @@ const getAllProperties = function (options, limit = 10) {
     else optionsQuery += `${rating}`;
   }
 
-  // Only add options to query if present
+  // Only add options to queryString if any options present
   if (optionsQuery.length > 7) {
     queryString += optionsQuery;
   }
@@ -159,7 +159,8 @@ const getAllProperties = function (options, limit = 10) {
   queryString += `
   ORDER BY properties.cost_per_night
   LIMIT $${queryParams.length};`;
-
+  
+  console.log(queryString);
   return pool
     .query(queryString, queryParams)
     .then((response) => response.rows)
