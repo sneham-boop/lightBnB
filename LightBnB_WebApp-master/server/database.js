@@ -102,20 +102,20 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function (options, limit = 10) {
-  let queryString = `SELECT properties.*, AVG(property_reviews.rating) AS average_rating
+  let queryString = `SELECT properties.*, AVG(property_reviews.rating) AS avg_rating
   FROM properties
   JOIN property_reviews ON properties.id = property_reviews.property_id
-  GROUP BY properties.id `;
+  GROUP BY properties.id
+  `;
   let queryParams = [];
 
-  // Assemble options for query
-  let optionsQuery = "HAVING ";
+  // Assemble options for query if present
+  let optionsQuery = "HAVING "; 
   let and = " AND ";
 
   // Own properties
   if (options.owner_id) {
     queryParams.push(parseInt(options.owner_id));
-    // queryString += `HAVING properties.owner_id = $${queryParams.length}`;
     optionsQuery += `properties.owner_id = $${queryParams.length}`;
   }
 
@@ -126,24 +126,17 @@ const getAllProperties = function (options, limit = 10) {
   }
 
   if (options.minimum_price_per_night && options.maximum_price_per_night) {
-    // Convert from $ to cents
-    const minPrice = options.minimum_price_per_night * 100;
-    const maxPrice = options.maximum_price_per_night * 100;
-    queryParams.push(minPrice, maxPrice);
-    const minMaxPrice = `properties.cost_per_night >= $${
-      queryParams.length - 1
-    } AND properties.cost_per_night <= $${queryParams.length}`;
-
+    // Convert from $ to cents with * 100
+    queryParams.push(options.minimum_price_per_night * 100, options.maximum_price_per_night * 100);
+    const minMaxPrice = `properties.cost_per_night >= $${queryParams.length - 1} AND properties.cost_per_night <= $${queryParams.length}`;
     // Check if any option was added before this
     if (optionsQuery.length > 7) optionsQuery += and + `${minMaxPrice}`;
     else optionsQuery += `${minMaxPrice}`;
   }
 
   if (options.minimum_rating) {
-    let rating = "";
     queryParams.push(parseInt(options.minimum_rating));
-    rating = `AVG(property_reviews.rating) >= $${queryParams.length}`;
-
+    const rating = `property_reviews.rating >= $${queryParams.length}`;
     // Check if any option was added before this
     if (optionsQuery.length > 7) optionsQuery += and + `${rating}`;
     else optionsQuery += `${rating}`;
@@ -160,7 +153,6 @@ const getAllProperties = function (options, limit = 10) {
   ORDER BY properties.cost_per_night
   LIMIT $${queryParams.length};`;
   
-  console.log(queryString);
   return pool
     .query(queryString, queryParams)
     .then((response) => response.rows)
@@ -189,14 +181,11 @@ const addProperty = function (property) {
 exports.addProperty = addProperty;
 
 /*
-SELECT reservations.start_date, properties.title, AVG(property_reviews.rating) AS avg_rating
-  FROM reservations
-  JOIN properties ON properties.id = reservations.property_id
+SELECT properties.title, property_reviews.rating
+  FROM properties
   JOIN property_reviews ON properties.id = property_reviews.property_id
-  WHERE 
-    reservations.guest_id = 1 AND
-    reservations.end_date < now()::date
-  GROUP BY reservations.id, properties.id
-  ORDER BY reservations.start_date
-  LIMIT 2;
+  WHERE properties.owner_id = 1
+  GROUP BY properties.id, property_reviews.rating 
+  ORDER BY properties.cost_per_night
+  LIMIT 10;
 */
